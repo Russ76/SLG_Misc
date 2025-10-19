@@ -117,6 +117,8 @@ unsigned long lastSonarMs = 0;
 
 //-------------------------------------- End of variable definitions -----------------------------------------//
 
+bool init_ok = false;
+
 unsigned long timer = 0;     // general purpose timer, microseconds
 unsigned long timer_old;
 
@@ -144,7 +146,7 @@ void setup()
 
   // ======================== init motors and encoders: ===================================
 
-  MotorsInit();
+  init_ok = MotorsInit();
 
 #ifdef HAS_ENCODERS
   EncodersInit();    // Initialize the encoders - attach interrupts
@@ -171,6 +173,12 @@ int printLoopCnt = 0;
 
 void loop() //Main Loop
 {
+  if (!init_ok) {
+    // Error: blinking LED_BUILTIN very slowly
+    blinkLED(10, 2000);
+    return;
+  }
+
   // Test and adjust joystick: https://github.com/slgrobotics/Misc/tree/master/Arduino/Sketchbook/FOC_joystick_test_Teensy_40
 
   // Wait here, if not time yet - we use a time fixed loop
@@ -178,6 +186,7 @@ void loop() //Main Loop
   {
     while ((micros() - timer) < STD_LOOP_TIME)
     {
+      motorLoop(); // run as often as possible
       readCommCommand();  // reads desiredSpeed
     }
   }
@@ -285,6 +294,8 @@ void loop() //Main Loop
 
     digitalWrite(greenLedPin, !digitalRead(greenLedPin)); // blinking at 10 Hz
 #endif // HAS_LEDS
+
+    // Normal cycle blinking: 5 Hz
     digitalWrite(mainLedPin,!digitalRead(mainLedPin));
   }
 

@@ -11,9 +11,9 @@ void InitLeds()
   pinMode (blueLedPin, OUTPUT);
   pinMode (greenLedPin, OUTPUT);
   pinMode (whiteLedPin, OUTPUT);
+#endif // HAS_LEDS
 
   blinkLED(10, 50);
-#endif // HAS_LEDS
 
   digitalWrite(mainLedPin, HIGH);
 
