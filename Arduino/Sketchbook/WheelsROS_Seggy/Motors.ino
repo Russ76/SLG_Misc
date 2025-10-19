@@ -7,11 +7,13 @@
 #include <SimpleFOC.h>
 
 #define POWER_SUPPLY_VOLTAGE 12
-#define DRIVER_VOLTAGE_LIMIT 6
+//#define DRIVER_VOLTAGE_LIMIT 6
+#define MOTOR_VOLTAGE_LIMIT 8
 #define MOTOR_VOLTAGE_ALIGN 2
 #define POLE_PAIRS 15
 
-const float voltage_limit = 6.0;  // safe startup limit
+#define MAX_SPEED_RAD_S 2.5
+
 const float current_limit = 3.0;  // A, conservative
 
 //target velocity and voltage limit variables:
@@ -93,13 +95,23 @@ bool MotorsInit()
 
   // driver config - power supply voltage [V]
   driverL.voltage_power_supply = driverR.voltage_power_supply = POWER_SUPPLY_VOLTAGE;
+  //driverL.voltage_limit = driverR.voltage_limit = DRIVER_VOLTAGE_LIMIT;
+  driverL.pwm_frequency = driverR.pwm_frequency = 20000;
 
   // limit the maximum dc voltage the driver can set
   // as a protection measure for the low-resistance motors
   // this value is fixed on startup
-  driverL.voltage_limit = driverR.voltage_limit = DRIVER_VOLTAGE_LIMIT;
   if(!driverL.init() || !driverR.init()){
     Serial.println("Error: Drivers init failed!");
+    return false;
+  }
+
+  // link current sense and driver
+  current_senseL.linkDriver(&driverL);
+  current_senseR.linkDriver(&driverR);
+  if (!current_senseL.init() || !current_senseR.init()) {
+    // also performs zero current offset
+    Serial.println("Error: current_sense.init() failed");
     return false;
   }
 
@@ -107,27 +119,28 @@ bool MotorsInit()
   motorL.linkDriver(&driverL);
   motorR.linkDriver(&driverR);
 
-  // During the sensor align procedure, SimpleFOC moves the wheels and measures
-  //     the direction of the sensor and the zero electrical angle offset.
-  // set aligning voltage [Volts]:
-  motorL.voltage_sensor_align = motorR.voltage_sensor_align = MOTOR_VOLTAGE_ALIGN;
-
   // Link sensors to motors:
   motorL.linkSensor(&sensorL);
   motorR.linkSensor(&sensorR);
+  sensorL.init();
+  sensorR.init();
 
   // limiting motor movements
   // limit the voltage to be set to the motor
   // start very low for high resistance motors
   // current = voltage / resistance, so try to be well under 1Amp
-  motorL.voltage_limit = volt_limit;
-  motorR.voltage_limit = volt_limit;
+  motorL.voltage_limit = motorR.voltage_limit = MOTOR_VOLTAGE_LIMIT;
+  motorL.LPF_velocity = motorR.LPF_velocity = 0.04;
+  motorL.PID_velocity.output_ramp = motorR.PID_velocity.output_ramp = 300.0;
  
+  // During the sensor align procedure, SimpleFOC moves the wheels and measures
+  //     the direction of the sensor and the zero electrical angle offset.
+  // set aligning voltage [Volts]:
+  motorL.voltage_sensor_align = motorR.voltage_sensor_align = MOTOR_VOLTAGE_ALIGN;
+
   // open loop control config
-  motorL.controller = MotionControlType::velocity_openloop;
-  motorR.controller = MotionControlType::velocity_openloop;
-  //motorL.controller = MotionControlType::velocity;
-  //motorR.controller = MotionControlType::velocity;
+  motorL.controller = MotionControlType::velocity;
+  motorR.controller = MotionControlType::velocity;
 
   setupPID();
 
@@ -143,6 +156,10 @@ bool MotorsInit()
   }
 
   set_motors();
+
+#ifdef TRACE
+  Serial.println("OK: FOC initialized. Starting test sequence...");
+#endif // TRACE
 
   return true;
 }
@@ -163,13 +180,13 @@ void set_motors()
 {
   constrainPwm();
 
-  target_velocity_L = map(pwm_L, -255, 255, -3.0, 3.0);
-  target_velocity_R = map(pwm_R, -255, 255, -3.0, 3.0);
+  target_velocity_L = map(pwm_L, -255, 255, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
+  target_velocity_R = map(pwm_R, -255, 255, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
 }
 
 void motorLoop()
 {
-  // Execute FOC algorithm
+  // Execute FOC algorithm. Runs as often as possible.
   motorL.loopFOC();
   motorR.loopFOC();
 

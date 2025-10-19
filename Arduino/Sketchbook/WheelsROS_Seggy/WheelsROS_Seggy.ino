@@ -195,6 +195,8 @@ void loop() //Main Loop
   timer_old = timer;
   timer = micros();
 
+  motorLoop(); // run as often as possible
+
   boolean isControlLoop = loopCnt % controlLoopFactor == 0;
 
 #ifdef TRACE
@@ -227,7 +229,7 @@ void loop() //Main Loop
 
   if (isJoystickActive())
   {
-    // ignore Comm values and override by joystick on A0 and A1:
+    // ignore Comm values and override by joystick on A2 and A9:
 
     computeJoystickSpeeds();
 
