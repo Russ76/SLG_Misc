@@ -86,7 +86,7 @@ void computeJoystickSpeeds()
   rightMix = y - x;
 #endif // USE_ARCADE_DRIVE
 
-  factor = factor * factor * 1.1;   // experimental
+  factor = factor * factor * 1.0;   // experimental
 
   // scale it to desired output, convert to integer:
   joystickSpeedL = (int)(leftMix * factor * (double)OUT_MAX);

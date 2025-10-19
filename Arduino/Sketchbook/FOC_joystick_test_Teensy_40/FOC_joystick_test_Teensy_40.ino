@@ -4,8 +4,8 @@
 #define JOYSTICK_X_PIN A2
 #define JOYSTICK_Y_PIN A9
 
-#define JOYSTICK_TRIM_X 0
-#define JOYSTICK_TRIM_Y -14
+#define JOYSTICK_TRIM_X 12
+#define JOYSTICK_TRIM_Y -2
 
 #define DEADZONE_JS 0.0
 
@@ -31,6 +31,8 @@ void loop() {
   int yy = analogRead(JOYSTICK_Y_PIN) + JOYSTICK_TRIM_Y;
   double jx = joystickX();
   double jy = joystickY();
+  //double jx = map((double)xx, 0.0, 1024.0, -100.0, 100.0);
+  //double jy = map((double)yy, 0.0, 1024.0, -100.0, 100.0);
   Serial.print("X: ");
   Serial.print(xx);
   Serial.print(" / ");
