@@ -3,7 +3,7 @@
 //
 // Implements simple strings-based protocol between the ROS2 diffdrive_arduino package (ros2_control interfaces) and RPi Pico
 //
-// See https://github.com/slgrobotics/diffdrive_arduino
+// See https://github.com/slgrobotics/diffdrive_arduino   - ROS2 driver for these wheels
 //
 // Credits: Original code by Articulated Robotics (Josh Newans):
 // https://articulatedrobotics.xyz/category/build-a-mobile-robot-with-ros
@@ -250,16 +250,16 @@ void runCommand() {
       //Serial.print(" --- ");
       //Serial.println(arg2);
 
-      // desiredSpeed* is in the range -100...100 - it has a meaning of "percent of max possible speed".
-      desiredSpeedL = arg1;
-      desiredSpeedR = arg2;
+      // speedSetpoint* is in the range -100...100 - it has a meaning of "percent of max possible speed".
+      speedSetpointL = arg1;
+      speedSetpointR = arg2;
       respond_OK(cmd);
       break;
     case MOTOR_RAW_PWM:
       /* Reset the auto stop timer */
       lastMotorCommandMs = millis();
-      desiredSpeedL = arg1;
-      desiredSpeedR = arg2;
+      speedSetpointL = arg1;
+      speedSetpointR = arg2;
       respond_OK(cmd);
       break;
     case UPDATE_PID:

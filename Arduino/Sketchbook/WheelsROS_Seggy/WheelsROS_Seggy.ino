@@ -15,11 +15,14 @@
 //     https://github.com/slgrobotics/Misc/blob/master/Arduino/Sketchbook/DraggerROS
 //     https://github.com/slgrobotics/Misc/blob/master/Arduino/Sketchbook/PluckyWheelsROS
 //     all the experiments and tests in the Sketchbook, named FOC_*
+//     https://github.com/slgrobotics/diffdrive_arduino   - ROS2 driver for these wheels
 //
 // Sergei Grichine - slg@quakemap.com
 //
 // Note: using Arduino IDE 2.3.6 + Teensy plugins + Teensy 4.0 on Ubunti 24.04
 //
+
+#define MAX_SPEED_RAD_S 2.5
 
 #define JOYSTICK_ACTIVATE_PIN 32
 #define JOYSTICK_PRESSED_PIN 33
@@ -54,31 +57,22 @@ volatile long long Ldistance, Rdistance;   // encoders - distance traveled, in t
 long long LdistancePrev = 0;   // last encoders values - distance traveled, in ticks
 long long RdistancePrev = 0;
 
-double speedMeasured_R = 0;  // percent of max speed for this drive configuration.
+double speedMeasured_R = 0;  // percent of max speed for this drive configuration, -100..100
 double speedMeasured_L = 0;
 
 long distR; // ticks per 100ms cycle, as measured
 long distL;
 #endif // HAS_ENCODERS
 
-double pwm_R, pwm_L;    // pwm -255..255 accumulated here and ultimately sent to motor (H-Bridge or servos) pins (will be constrained by set_motor())
-
-int angle_steer{0};
-int angle_throttle{0};
-
 // desired speed can be set by joystick:
 // comes in the range -100...100 - it has a meaning of "percent of max speed":
 double joystickSpeedR = 0.0;
 double joystickSpeedL = 0.0;
 
-// desired speed is set by Comm or Joystick.
+// Setpoints (desired speed) is set by Comm or Joystick.
 // comes in the range -100...100 - it has a meaning of "percent of max possible speed"
-double desiredSpeedR = 0.0;
-double desiredSpeedL = 0.0;
-
-// Setpoints (desired speed, -100...100 ):
-double setpointSpeedR = 0.0;
-double setpointSpeedL = 0.0;
+double speedSetpointR = 0.0;
+double speedSetpointL = 0.0;
 
 // Robot physical parameters:
 double wheelBaseMeters = 0.46;
@@ -137,7 +131,7 @@ int printLoopCnt = 0;
 void loop() //Main Loop
 {
   if (!init_ok) {
-    // Error: blinking LED_BUILTIN very slowly
+    // Error: blinking LED_BUILTIN very slowly, doing nothing
     blinkLED(10, 2000);
     return;
   }
@@ -149,8 +143,8 @@ void loop() //Main Loop
   {
     while ((micros() - timer) < STD_LOOP_TIME)
     {
-      motorLoop(); // run as often as possible
-      readCommCommand();  // reads desiredSpeed
+      motorLoop(); // FOC must run as often as possible
+      readCommCommand();  // reads speedSetpointL/R and other commands from ROS2 driver - https://github.com/slgrobotics/diffdrive_arduino
     }
   }
 
@@ -158,7 +152,7 @@ void loop() //Main Loop
   timer_old = timer;
   timer = micros();
 
-  motorLoop(); // run as often as possible
+  motorLoop(); // FOC must run as often as possible
 
   boolean isControlLoop = loopCnt % controlLoopFactor == 0;
 
@@ -172,7 +166,7 @@ void loop() //Main Loop
       Serial.print("Dist/cycle: ");
       Serial.print(distR);
       Serial.print("   Desired: ");
-      Serial.print(desiredSpeedR);
+      Serial.print(speedSetpointR);
       Serial.print("   Measured: ");
       Serial.println(speedMeasured_R);
     */
@@ -183,12 +177,12 @@ void loop() //Main Loop
   if (millis() - lastCommMs > AUTO_STOP_INTERVAL || millis() - lastMotorCommandMs > AUTO_STOP_INTERVAL)
   {
     // failsafe - Comm signal or motor command is not detected for more than a second
-    desiredSpeedR = desiredSpeedL = 0.0;
+    speedSetpointR = speedSetpointL = 0.0;
   }
 
   // test - controller should hold this speed:
-  //desiredSpeedR = 20;
-  //desiredSpeedL = 20;
+  //speedSetpointR = 20;
+  //speedSetpointL = 20;
 
   if (isJoystickActive())
   {
@@ -196,38 +190,20 @@ void loop() //Main Loop
 
     computeJoystickSpeeds();
 
-    desiredSpeedL = joystickSpeedL;
-    desiredSpeedR = joystickSpeedR;
+    speedSetpointL = joystickSpeedL;
+    speedSetpointR = joystickSpeedR;
   }
 
-  setpointSpeedR = desiredSpeedR;
-  setpointSpeedL = desiredSpeedL;
+  // At this point the speedSetpointL/R should be determined and will be used for motors
 
   if (isControlLoop) // we do speed calculation on a slower scale, about 10Hz
   {
 #ifdef HAS_ENCODERS
-    // based on PWM increments, calculate speed:
+    // calculate speed and distance:
     speed_calculate();
 #endif // HAS_ENCODERS
 
-    pwm_R = constrain(map(setpointSpeedR, -100, 100, -255, 255), -255.0, 255.0);
-    pwm_L = constrain(map(setpointSpeedL, -100, 100, -255, 255), -255.0, 255.0);
-
-    // if(abs(pwm_R) > 250 || abs(desiredSpeedR - speedMeasured_R) > 3) {
-    //   Serial.print(speedMeasured_R);
-    //   Serial.print("  ");
-    //   Serial.println(pwm_R);
-    // }
-
-    // test: At both motors set to +80 expect Ldistance and Rdistance to increase
-    //pwm_R = 80.0;
-    //pwm_L = 80.0;
-    //if(!isJoystickActive()) {
-    //  pwm_L = 255.0;  // measure full speed distR and distL. See SpeedControl tab.
-    //  pwm_R = 255.0;
-    //}
-
-    set_motors();
+    set_motors(); // pass speedSetpointR/L to FOC
 
 #ifdef HAS_LEDS
     digitalWrite(redLedPin, millis() - lastCommMs > 1000 ? HIGH : LOW);

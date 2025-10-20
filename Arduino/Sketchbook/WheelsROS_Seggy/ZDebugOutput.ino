@@ -75,15 +75,6 @@ void printAll()
     Serial.println(speedMeasured_L);
 #endif // HAS_ENCODERS
 
-    Serial.print("Motors:   pwm_R: ");
-    Serial.print(pwm_R);
-    Serial.print("  pwm_L: ");
-    Serial.print(pwm_L);
-    Serial.print("       angles: steer: ");
-    Serial.print(angle_steer);
-    Serial.print("  throttle: ");
-    Serial.println(angle_throttle);
-
     Serial.print("Joystick:   active: ");
     Serial.print(isJoystickActive());
     Serial.print("  pressed: ");

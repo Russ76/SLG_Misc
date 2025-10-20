@@ -12,8 +12,6 @@
 #define MOTOR_VOLTAGE_ALIGN 2
 #define POLE_PAIRS 15
 
-#define MAX_SPEED_RAD_S 2.5
-
 const float current_limit = 3.0;  // A, conservative
 
 //target velocity and voltage limit variables:
@@ -86,8 +84,7 @@ void setupPID() {
 
 bool MotorsInit()
 {
-  pwm_R = 0;
-  pwm_L = 0;
+  target_velocity_L = target_velocity_R = 0.0f;
 
   // enable more verbose output for debugging
   // comment out if not needed. See https://docs.simplefoc.com/debugging
@@ -164,13 +161,6 @@ bool MotorsInit()
   return true;
 }
 
-void constrainPwm()
-{
-  // Maximum / Minimum Limitations:
-  pwm_R = constrain(pwm_R, -255, 255);
-  pwm_L = constrain(pwm_L, -255, 255);
-}
-
 // ******************************************************************************************
 //
 //   Set motor power for both motors. Positive is forward.
@@ -178,10 +168,9 @@ void constrainPwm()
 // ******************************************************************************************
 void set_motors()
 {
-  constrainPwm();
-
-  target_velocity_L = map(pwm_L, -255, 255, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
-  target_velocity_R = map(pwm_R, -255, 255, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
+  // convert setpoints to rad/s for FOC
+  target_velocity_L = map(constrain(speedSetpointL, -100, 100), -100, 100, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
+  target_velocity_R = map(constrain(speedSetpointR, -100, 100), -100, 100, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
 }
 
 void motorLoop()
