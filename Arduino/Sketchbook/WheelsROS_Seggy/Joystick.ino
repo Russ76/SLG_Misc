@@ -1,6 +1,4 @@
 
-#define USE_ARCADE_DRIVE
-
 boolean isJoystickActive()
 {
   return !digitalRead(JOYSTICK_ACTIVATE_PIN);

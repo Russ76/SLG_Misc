@@ -1,17 +1,12 @@
 //#define TRACE
-//#define USE_EMA
-//#define USE_PIDS
 //#define HAS_ENCODERS
 //#define HAS_LEDS
+//#define USE_ARCADE_DRIVE
 
 // See https://github.com/slgrobotics/robots_bringup
 
-#ifdef USE_PIDS
-#include <PID_v1.h>
-#endif // USE_PIDS
-
 //
-// This code is an adaptation of Dragger and Plucky robots code, which runs on Mega 2560
+// This code is an adaptation of Dragger and Plucky robots code, which runs on Mega 2560, to Seggy's Teensy 4.0
 // The "Comm" part complies with articubot_one and can be used with ROS2 interchangibly.
 //
 // As of 2025-10-20 this code is deployed on Seggy robot and works with its joystick and ROS2 Jazzy
@@ -19,6 +14,7 @@
 // See https://github.com/slgrobotics/robots_bringup/tree/main/Docs
 //     https://github.com/slgrobotics/Misc/blob/master/Arduino/Sketchbook/DraggerROS
 //     https://github.com/slgrobotics/Misc/blob/master/Arduino/Sketchbook/PluckyWheelsROS
+//     all the experiments and tests in the Sketchbook, named FOC_*
 //
 // Sergei Grichine - slg@quakemap.com
 //
@@ -48,7 +44,7 @@ const int blueLedPin = 31;
 #endif // HAS_LEDS
 
 const int mydt = 5;           // 5 milliseconds make for 200 Hz operating cycle
-const int controlLoopFactor = 20; // factor of 20 make for 100 ms Control (PID) cycle
+const int controlLoopFactor = 20; // factor of 20 make for 100 ms Control cycle
 
 //-------------------------------------- Variable definitions --------------------------------------------- //
 
@@ -66,9 +62,6 @@ long distL;
 #endif // HAS_ENCODERS
 
 double pwm_R, pwm_L;    // pwm -255..255 accumulated here and ultimately sent to motor (H-Bridge or servos) pins (will be constrained by set_motor())
-#ifdef USE_PIDS
-double dpwm_R, dpwm_L;  // correction output, calculated by PID, constrained -250..250 normally, will be added to the above
-#endif // USE_PIDS
 
 int angle_steer{0};
 int angle_throttle{0};
@@ -83,28 +76,14 @@ double joystickSpeedL = 0.0;
 double desiredSpeedR = 0.0;
 double desiredSpeedL = 0.0;
 
-// PID Setpoints (desired speed after ema, -100...100 ):
+// Setpoints (desired speed, -100...100 ):
 double setpointSpeedR = 0.0;
 double setpointSpeedL = 0.0;
 
-const int RightMotorChannel = 0;  // index to ema*[] arrays
-const int LeftMotorChannel = 1;
-
-// EMA period to smooth wheels movement. 100 is smooth but fast, 300 is slow.
-const int EmaPeriod = 20;
-
 // Robot physical parameters:
-double wheelBaseMeters = 0.600;
-double wheelRadiusMeters = 0.192;
+double wheelBaseMeters = 0.46;
+double wheelRadiusMeters = 0.12;
 double encoderTicksPerRevolution = 2506; // one wheel rotation
-
-#ifdef USE_PIDS
-// higher Ki causes residual rotation, higher Kd - jerking movement
-PID myPID_R(&speedMeasured_R, &dpwm_R, &setpointSpeedR, 1.0, 0, 0.05, DIRECT);    // in, out, setpoint, double Kp, Ki, Kd, DIRECT or REVERSE
-PID myPID_L(&speedMeasured_L, &dpwm_L, &setpointSpeedL, 1.0, 0, 0.05, DIRECT);
-#endif // USE_PIDS
-
-bool testDir = false;
 
 /* Stop the robot if it hasn't received a movement command
   in this number of milliseconds */
@@ -131,19 +110,6 @@ void setup()
 
   InitLeds();
 
-#ifdef USE_PIDS
-  int PID_SAMPLE_TIME = mydt * controlLoopFactor;  // milliseconds.
-
-  // turn the PID on and set its parameters:
-  myPID_R.SetOutputLimits(-250.0, 250.0);  // match to maximum PID outputs in both directions. PID output will be added to PWM on each cycle.
-  myPID_R.SetSampleTime(PID_SAMPLE_TIME);  // milliseconds. Regardless of how frequently Compute() is called, the PID algorithm will be evaluated at a regular interval (no more often than this).
-  myPID_R.SetMode(AUTOMATIC);              // AUTOMATIC means the calculations take place, while MANUAL just turns off the PID and lets the man drive
-
-  myPID_L.SetOutputLimits(-250.0, 250.0);
-  myPID_L.SetSampleTime(PID_SAMPLE_TIME);
-  myPID_L.SetMode(AUTOMATIC);
-#endif // USE_PIDS
-
   // ======================== init motors and encoders: ===================================
 
   init_ok = MotorsInit();
@@ -151,9 +117,6 @@ void setup()
 #ifdef HAS_ENCODERS
   EncodersInit();    // Initialize the encoders - attach interrupts
 #endif // HAS_ENCODERS
-
-  setEmaPeriod(RightMotorChannel, EmaPeriod);
-  setEmaPeriod(LeftMotorChannel, EmaPeriod);
 
   timer = micros();
   delay(20);
@@ -235,43 +198,20 @@ void loop() //Main Loop
 
     desiredSpeedL = joystickSpeedL;
     desiredSpeedR = joystickSpeedR;
-
-    //  myPID_L.SetMode(MANUAL);  // Disables PID, input goes straight to PWM
-    //  myPID_R.SetMode(MANUAL);
-    //} else {
-    //  myPID_L.SetMode(AUTOMATIC);
-    //  myPID_R.SetMode(AUTOMATIC);
   }
 
-#ifdef USE_EMA
-  // smooth movement by using ema: take desiredSpeed and produce setpointSpeed
-  ema(RightMotorChannel);
-  ema(LeftMotorChannel);
-#else // USE_EMA
-  setpointSpeedR = desiredSpeedR; // no ema
+  setpointSpeedR = desiredSpeedR;
   setpointSpeedL = desiredSpeedL;
-#endif // USE_EMA
 
-#ifdef USE_PIDS
-  // compute control inputs - increments to current PWM
-  myPID_R.Compute();
-  myPID_L.Compute();
-#endif // USE_PIDS
-
-  if (isControlLoop) // we do speed PID calculation on a slower scale, about 10Hz
+  if (isControlLoop) // we do speed calculation on a slower scale, about 10Hz
   {
 #ifdef HAS_ENCODERS
     // based on PWM increments, calculate speed:
     speed_calculate();
 #endif // HAS_ENCODERS
 
-#ifdef USE_PIDS
-    // Calculate the pwm, given the desired speed (pick up values computed by PIDs):
-    pwm_calculate();
-#else // USE_PIDS
     pwm_R = constrain(map(setpointSpeedR, -100, 100, -255, 255), -255.0, 255.0);
     pwm_L = constrain(map(setpointSpeedL, -100, 100, -255, 255), -255.0, 255.0);
-#endif // USE_PIDS
 
     // if(abs(pwm_R) > 250 || abs(desiredSpeedR - speedMeasured_R) > 3) {
     //   Serial.print(speedMeasured_R);

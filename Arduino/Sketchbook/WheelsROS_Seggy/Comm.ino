@@ -48,8 +48,6 @@ void InitSerial() {
 
 /* Variable initialization */
 
-unsigned char moving = 0; // is the base in motion?
-
 // Variable to hold the current single-character command
 char cmd;
 String cmd_in;
@@ -58,7 +56,6 @@ String cmd_in;
 long arg1;
 long arg2;
 
-char pid_args_str[64];
 char out_buf[128];
 
 void respond() {
@@ -126,7 +123,6 @@ void readCommCommand() {
 
       case 2:  // command and one simple or composite argument
         arg1 = strs[1].toInt(); // for commands like "a 4"
-        strs[1].toCharArray(pid_args_str, sizeof(pid_args_str)); // possibly like "u 30:20:0:100"
         runCommand();
         resetCommand();
         break;
@@ -161,7 +157,6 @@ void readCommCommand() {
 /* Clear the current command parameters */
 void resetCommand() {
   cmd = '\0';
-  pid_args_str[0] = '\0';
   arg1 = 0;
   arg2 = 0;
 }
@@ -231,7 +226,7 @@ void runCommand() {
 #ifdef HAS_ENCODERS
       EncodersReset();
 #endif // HAS_ENCODERS
-      resetPID();
+      // do nothing
       respond_OK(cmd);
       break;
     case READ_HEALTH:
@@ -254,58 +249,21 @@ void runCommand() {
       //Serial.print(arg1);
       //Serial.print(" --- ");
       //Serial.println(arg2);
-      if (arg1 == 0 && arg2 == 0) {
-        setMotorSpeeds(0, 0);
-        resetPID();
-        moving = 0;
-      }
-      else moving = 1;
 
       // desiredSpeed* is in the range -100...100 - it has a meaning of "percent of max possible speed".
-      // it must be scaled if ticks/sec or rad/sec or m/sec is desired.
-      // For Plucky full wheel rotation takes 3.8 seconds. So, with R_wheel = 0.192m max speed is:
-      //   - 0.317 m/sec
-      //   - 1.65 rad/sec
-      //   - 660 encoder ticks/sec
-
-      //leftPID.TargetTicksPerFrame = arg1;
       desiredSpeedL = arg1;
-      //rightPID.TargetTicksPerFrame = arg2;
       desiredSpeedR = arg2;
       respond_OK(cmd);
       break;
     case MOTOR_RAW_PWM:
       /* Reset the auto stop timer */
       lastMotorCommandMs = millis();
-      resetPID();
-      moving = 0; // Sneaky way to temporarily disable the PID
-      setMotorSpeeds(arg1, arg2);
+      desiredSpeedL = arg1;
+      desiredSpeedR = arg2;
       respond_OK(cmd);
       break;
     case UPDATE_PID:
-      {
-        char *p = pid_args_str;
-        char *str;
-        int i = 0;
-        int pid_args[4];
-
-        while ((str = strtok_r(p, ":", &p)) != NULL) {
-          pid_args[i] = atoi(str);
-          i++;
-        }
-
-        /*
-          Serial.print(pid_args[0]); Serial.print("|");
-          Serial.print(pid_args[1]); Serial.print("|");
-          Serial.print(pid_args[2]); Serial.print("|");
-          Serial.println(pid_args[3]);
-          /*
-          Kp = pid_args[0];
-          Kd = pid_args[1];
-          Ki = pid_args[2];
-          Ko = pid_args[3];
-        */
-      }
+      // do nothing
       respond_OK(cmd);
       break;
 #endif  // ARTICUBOTS_USE_BASE
@@ -324,19 +282,4 @@ long readEncoder(int i) {
 #else
   return 0L;
 #endif // HAS_ENCODERS
-}
-
-void resetPID() {
-}
-
-/* Wrap the drive motor set speed function */
-void setMotorSpeed(int i, int spd) {
-  if (i == LEFT) desiredSpeedL = spd;
-  else desiredSpeedR = spd;
-}
-
-// A convenience function for setting both motor speeds
-void setMotorSpeeds(int leftSpeed, int rightSpeed) {
-  setMotorSpeed(LEFT, leftSpeed);
-  setMotorSpeed(RIGHT, rightSpeed);
 }

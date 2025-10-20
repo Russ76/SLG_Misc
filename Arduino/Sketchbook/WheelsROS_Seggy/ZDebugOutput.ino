@@ -7,7 +7,6 @@ void InitLeds()
 #ifdef HAS_LEDS
   // diagnostic LEDs:
   pinMode (redLedPin, OUTPUT);
-  pinMode (yellowLedPin, OUTPUT);
   pinMode (blueLedPin, OUTPUT);
   pinMode (greenLedPin, OUTPUT);
   pinMode (whiteLedPin, OUTPUT);
@@ -75,13 +74,6 @@ void printAll()
     Serial.print("       Left: ");
     Serial.println(speedMeasured_L);
 #endif // HAS_ENCODERS
-
-#ifdef USE_PIDS
-    Serial.print("PID:   Right dpwm_R: ");
-    Serial.print(dpwm_R);
-    Serial.print("       Left dpwm_L: ");
-    Serial.println(dpwm_L);
-#endif // USE_PIDS
 
     Serial.print("Motors:   pwm_R: ");
     Serial.print(pwm_R);
