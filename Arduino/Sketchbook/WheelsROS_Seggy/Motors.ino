@@ -136,7 +136,7 @@ bool MotorsInit()
   // start very low for high resistance motors
   // current = voltage / resistance, so try to be well under 1Amp
   motorL.voltage_limit = motorR.voltage_limit = MOTOR_VOLTAGE_LIMIT;
-  motorL.LPF_velocity = motorR.LPF_velocity = 0.4; // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
+  motorL.LPF_velocity = motorR.LPF_velocity = 0.2; // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
   motorL.PID_velocity.output_ramp = motorR.PID_velocity.output_ramp = 300.0;
  
   // During the sensor align procedure, SimpleFOC moves the wheels and measures
