@@ -25,6 +25,17 @@ void InitLeds()
   */
 }
 
+void buzz(int nTimes, int halfPeriodMs)
+{
+  for (int i = 0; i < nTimes; i++)
+  {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay(halfPeriodMs);
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(halfPeriodMs);
+  }
+}
+
 void blinkLED(int nTimes, int halfPeriodMs)
 {
   for (int i = 0; i < nTimes; i++)
@@ -57,6 +68,11 @@ void printAll()
     Serial.print("-------------------- ");
     Serial.print((loopCnt - lastLoopCnt) / (PRINT_INTERVAL_MS / 1000));
     Serial.println(" loops/sec");
+
+    Serial.print("Battery: mV: ");
+    Serial.print(battery_voltage_mv);
+    Serial.print(" mA: ");
+    Serial.println(battery_current_ma);
 
     Serial.print("Speed setpoints %:   Right: ");
     Serial.print(setpointSpeedR);

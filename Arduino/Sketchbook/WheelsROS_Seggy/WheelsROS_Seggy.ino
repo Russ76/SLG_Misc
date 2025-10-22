@@ -36,6 +36,8 @@
 
 const int batteryVoltageInPin = A10;  // Analog input pin that the battery 1/3 divider is attached to. 4.7K / 1.2K does the job for 15V max.
 
+#define BUZZER_PIN 26
+
 const int mainLedPin = LED_BUILTIN;
 
 #ifdef HAS_LEDS
@@ -83,6 +85,9 @@ double encoderTicksPerRevolution = 2506; // one wheel rotation
   in this number of milliseconds */
 unsigned long AUTO_STOP_INTERVAL = 2000;
 
+long battery_voltage_mv = 0l;
+long battery_current_ma = 0l;
+
 // milliseconds from last events:
 unsigned long lastMotorCommandMs = 0;
 unsigned long lastCommMs = 0;
@@ -104,6 +109,8 @@ void setup()
 
   InitLeds();
 
+  pinMode (BUZZER_PIN, OUTPUT);
+
   // ======================== init motors and encoders: ===================================
 
   init_ok = MotorsInit();
@@ -115,6 +122,12 @@ void setup()
   timer = micros();
   delay(20);
   loopCnt = 0;
+
+  if(init_ok) {
+    buzz(200, 1);
+  } else {
+    buzz(500, 3);
+  }
 }
 
 // =========================== main loop timing ============================================
@@ -198,6 +211,18 @@ void loop() //Main Loop
 
   if (isControlLoop) // we do speed calculation on a slower scale, about 10Hz
   {
+    battery_voltage_mv = analogRead(batteryVoltageInPin);
+    battery_voltage_mv = battery_voltage_mv * 16204l / 1000l; // millivolts, returns "12000" for 12.0V
+
+    digitalWrite(BUZZER_PIN, battery_voltage_mv < 10000l);
+
+    /*
+    //battery_current_ma = 529l + 51l;
+    battery_current_ma = max(51l,battery_current_ma);
+    battery_current_ma = (battery_current_ma - 51l) * 3730l / 529l; // milliamperes, returns 580 for 3.73A
+    //battery_current_ma = (battery_current_ma - 51l); // direct A/D reading, after offset
+    */
+
 #ifdef HAS_ENCODERS
     // calculate speed and distance:
     speed_calculate();

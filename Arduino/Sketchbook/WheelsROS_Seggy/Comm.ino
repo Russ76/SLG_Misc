@@ -231,15 +231,7 @@ void runCommand() {
       break;
     case READ_HEALTH:
       {
-        long voltage_mv = analogRead(batteryVoltageInPin);
-        voltage_mv = voltage_mv * 16204l / 1000l; // millivolts, returns "12000" for 12.0V
-
-        long current_ma = 0; // analogRead(batteryCurrentInPin);
-        //current_ma = 529l + 51l;
-        current_ma = max(51l,current_ma);
-        current_ma = (current_ma - 51l) * 3730l / 529l; // milliamperes, returns 580 for 3.73A
-        //current_ma = (current_ma - 51l); // direct A/D reading, after offset
-        sprintf(&out_buf[2], "%ld %d %d\r", voltage_mv, current_ma, 0);
+        sprintf(&out_buf[2], "%ld %d %d\r", battery_voltage_mv, battery_current_ma, 0);
         respond();
       }
       break;
