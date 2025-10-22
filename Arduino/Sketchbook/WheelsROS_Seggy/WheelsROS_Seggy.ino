@@ -1,4 +1,4 @@
-#define TRACE
+//#define TRACE
 //#define HAS_ENCODERS
 //#define HAS_LEDS
 //#define USE_ARCADE_DRIVE

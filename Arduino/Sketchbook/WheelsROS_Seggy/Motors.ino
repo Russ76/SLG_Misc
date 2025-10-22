@@ -42,9 +42,9 @@ InlineCurrentSense current_senseR = InlineCurrentSense(0.005, 24, A3, A4, A5); /
 // -------- PID tuning values from last message --------
 void setupPID() {
 
-  float vel_P = 0.5;
-  float vel_I = 0.02;
-  float vel_D = 0.004;
+  float vel_P = 0.4;
+  float vel_I = 2.0;
+  float vel_D = 0.0;
 
   float curr_P = 1.0;
   float curr_I = 0.03;
@@ -93,14 +93,18 @@ bool MotorsInit()
 {
   target_velocity_L = target_velocity_R = 0.0f;
 
+#ifdef TRACE
   // enable more verbose output for debugging
   // comment out if not needed. See https://docs.simplefoc.com/debugging
   SimpleFOCDebug::enable(&Serial);
+#endif // TRACE
 
   // driver config - power supply voltage [V]
   driverL.voltage_power_supply = driverR.voltage_power_supply = POWER_SUPPLY_VOLTAGE;
   //driverL.voltage_limit = driverR.voltage_limit = DRIVER_VOLTAGE_LIMIT;
   driverL.pwm_frequency = driverR.pwm_frequency = 20000;
+  // Force center-aligned PWM mode to avoid warning at startup (library version 2.4.x+):
+  //driverL.center_aligned = driverR.center_aligned = true;
 
   // limit the maximum dc voltage the driver can set
   // as a protection measure for the low-resistance motors
@@ -130,8 +134,8 @@ bool MotorsInit()
   sensorR.init();
 
   // limiting motor movements
-  // limit the voltage to be set to the motor
-  // start very low for high resistance motors
+  // Note: enables basic anti-windup mechanism if you limit the voltage or current.
+  // limit the voltage to be set to the motor. Start very low for high resistance motors.
   // current = voltage / resistance, so try to be well under 1Amp
   motorL.voltage_limit = motorR.voltage_limit = MOTOR_VOLTAGE_LIMIT;
   motorL.LPF_velocity = motorR.LPF_velocity = 0.2; // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
@@ -191,6 +195,9 @@ void getFOCCurrents()
     current_dq_R = current_senseR.getFOCCurrents(motorR.electrical_angle);
 }
 
+float prev_target_velocity_L = 0.0;
+float prev_target_velocity_R = 0.0;
+
 void motorLoop()
 {
   // Execute FOC algorithm. Runs as often as possible.
@@ -200,6 +207,17 @@ void motorLoop()
   // open loop velocity movement
   // using motor.voltage_limit and motor.velocity_limit
   // to turn the motor "backwards", just set a negative target_velocity
+
+  if (abs(target_velocity_L) < 0.05 || (prev_target_velocity_L * target_velocity_L) < 0) {
+      // anti-windup protection, reset accumulated integral on stops and direction reversals
+      motorL.PID_velocity.reset();
+  }
+  prev_target_velocity_L = target_velocity_L;
   motorL.move(-target_velocity_L);
+
+  if (abs(target_velocity_R) < 0.05 || (prev_target_velocity_R * target_velocity_R) < 0) {
+      motorR.PID_velocity.reset();
+  }
+  prev_target_velocity_R = target_velocity_R;
   motorR.move(target_velocity_R);
 }
