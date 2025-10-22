@@ -110,6 +110,7 @@ void setup()
   InitLeds();
 
   pinMode (BUZZER_PIN, OUTPUT);
+  buzz(2, 50, 100);
 
   // ======================== init motors and encoders: ===================================
 
@@ -124,9 +125,9 @@ void setup()
   loopCnt = 0;
 
   if(init_ok) {
-    buzz(200, 1);
+    buzz(1, 200, 200);
   } else {
-    buzz(500, 3);
+    buzz(3, 500, 500);
   }
 }
 

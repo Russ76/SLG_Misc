@@ -43,19 +43,28 @@ InlineCurrentSense current_senseR = InlineCurrentSense(0.005, 24, A3, A4, A5); /
 
 // -------- PID tuning values from last message --------
 void setupPID() {
-  // current q/d
-  motorL.PID_current_q.P = 1.00;
-  motorL.PID_current_q.I = 0.03;
-  motorL.PID_current_q.D = 0.00;
 
-  motorL.PID_current_d.P = 1.00;
-  motorL.PID_current_d.I = 0.03;
-  motorL.PID_current_d.D = 0.00;
+  // float vel_P = 0.4;
+  // float vel_I = 0.02;
+  // float vel_D = 0.004;
+
+  float vel_P = 0.5;
+  float vel_I = 0.;
+  float vel_D = 0.0;
+
+  // current q/d
+  motorL.PID_current_q.P = 0.0;
+  motorL.PID_current_q.I = 0.0;
+  motorL.PID_current_q.D = 0.0;
+
+  motorL.PID_current_d.P = 0.0;
+  motorL.PID_current_d.I = 0.0;
+  motorL.PID_current_d.D = 0.0;
 
   // velocity
-  motorL.PID_velocity.P = 0.08;   // 0.60;
-  motorL.PID_velocity.I = 0.75;   // 0.015;
-  motorL.PID_velocity.D = 0.004;  //0.0002;
+  motorL.PID_velocity.P = vel_P;
+  motorL.PID_velocity.I = vel_I;
+  motorL.PID_velocity.D = vel_D;
 
   // position (optional)
   // motorL.P_angle.P = 18.0;
@@ -63,18 +72,18 @@ void setupPID() {
   // motorL.P_angle.D = 0.0;
 
   // current q/d
-  motorR.PID_current_q.P = 1.00;
-  motorR.PID_current_q.I = 0.03;
-  motorR.PID_current_q.D = 0.00;
+  motorR.PID_current_q.P = 0.0;
+  motorR.PID_current_q.I = 0.0;
+  motorR.PID_current_q.D = 0.0;
 
-  motorR.PID_current_d.P = 1.00;
-  motorR.PID_current_d.I = 0.03;
-  motorR.PID_current_d.D = 0.00;
+  motorR.PID_current_d.P = 0.0;
+  motorR.PID_current_d.I = 0.0;
+  motorR.PID_current_d.D = 0.0;
 
   // velocity
-  motorR.PID_velocity.P = 0.08;   // 0.60;
-  motorR.PID_velocity.I = 0.75;   // 0.015;
-  motorR.PID_velocity.D = 0.004;  //0.0002;
+  motorR.PID_velocity.P = vel_P;
+  motorR.PID_velocity.I = vel_I;
+  motorR.PID_velocity.D = vel_D;
 
   // position (optional)
   // motorR.P_angle.P = 18.0;
@@ -127,7 +136,7 @@ bool MotorsInit()
   // start very low for high resistance motors
   // current = voltage / resistance, so try to be well under 1Amp
   motorL.voltage_limit = motorR.voltage_limit = MOTOR_VOLTAGE_LIMIT;
-  motorL.LPF_velocity = motorR.LPF_velocity = 0.04;
+  motorL.LPF_velocity = motorR.LPF_velocity = 0.4; // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
   motorL.PID_velocity.output_ramp = motorR.PID_velocity.output_ramp = 300.0;
  
   // During the sensor align procedure, SimpleFOC moves the wheels and measures

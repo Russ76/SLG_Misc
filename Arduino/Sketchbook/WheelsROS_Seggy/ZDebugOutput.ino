@@ -25,14 +25,14 @@ void InitLeds()
   */
 }
 
-void buzz(int nTimes, int halfPeriodMs)
+void buzz(int nTimes, int buzzDurationMs, int silenceDurationMs)
 {
   for (int i = 0; i < nTimes; i++)
   {
     digitalWrite(BUZZER_PIN, HIGH);
-    delay(halfPeriodMs);
+    delay(buzzDurationMs);
     digitalWrite(BUZZER_PIN, LOW);
-    delay(halfPeriodMs);
+    delay(silenceDurationMs);
   }
 }
 
