@@ -69,15 +69,40 @@ void printAll()
     Serial.print((loopCnt - lastLoopCnt) / (PRINT_INTERVAL_MS / 1000));
     Serial.println(" loops/sec");
 
-    Serial.print("Battery: mV: ");
+    Serial.print("Battery: ADC: ");
+    Serial.print(analogRead(batteryVoltageInPin));
+    Serial.print("\tmV: ");
     Serial.print(battery_voltage_mv);
-    Serial.print(" mA: ");
+    Serial.print("\tmA: ");
     Serial.println(battery_current_ma);
 
-    Serial.print("Speed setpoints %:   Right: ");
-    Serial.print(setpointSpeedR);
-    Serial.print("       Left: ");
-    Serial.println(setpointSpeedL);
+    Serial.print("Left  DC: ");
+    Serial.print(current_dc_L);
+    Serial.print(" A\tPhases:\t");
+    Serial.print(current_ph_L.a);  // milli Amps
+    Serial.print("\t");
+    Serial.print(current_ph_L.b);
+    Serial.print("\t");
+    Serial.println(current_ph_L.c);
+
+    Serial.print("Right DC: ");
+    Serial.print(current_dc_R);
+    Serial.print(" A\tPhases:\t");
+    Serial.print(current_ph_R.a);  // milli Amps
+    Serial.print("\t");
+    Serial.print(current_ph_R.b);
+    Serial.print("\t");
+    Serial.println(current_ph_R.c);
+
+    Serial.print("Speed setpoints %: Left: ");
+    Serial.print(speedSetpointL);
+    Serial.print("\tRight: ");
+    Serial.println(speedSetpointR);
+
+    Serial.print("Speed measured:    Left: ");
+    Serial.print(motorL.shaft_velocity);
+    Serial.print("\tRight: ");
+    Serial.println(motorR.shaft_velocity);
 
 #ifdef HAS_ENCODERS
     Serial.print("Encoders:  Right Rdistance: ");
@@ -101,7 +126,7 @@ void printAll()
     Serial.print(joystickY());
     Serial.print(" joystick speed L: ");
     Serial.print(joystickSpeedL);
-    Serial.print(" speed R: ");
+    Serial.print(" R: ");
     Serial.println(joystickSpeedR);
 
     lastLoopCnt = loopCnt;

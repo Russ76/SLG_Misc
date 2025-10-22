@@ -4,8 +4,6 @@
 // Seggy ("Smart Table" robot is based on Segway Ninebot miniPRO
 //
 
-#include <SimpleFOC.h>
-
 #define POWER_SUPPLY_VOLTAGE 12
 //#define DRIVER_VOLTAGE_LIMIT 6
 #define MOTOR_VOLTAGE_LIMIT 8
@@ -44,22 +42,22 @@ InlineCurrentSense current_senseR = InlineCurrentSense(0.005, 24, A3, A4, A5); /
 // -------- PID tuning values from last message --------
 void setupPID() {
 
-  // float vel_P = 0.4;
-  // float vel_I = 0.02;
-  // float vel_D = 0.004;
-
   float vel_P = 0.5;
   float vel_I = 0.02;
   float vel_D = 0.004;
 
-  // current q/d
-  motorL.PID_current_q.P = 0.0;
-  motorL.PID_current_q.I = 0.0;
-  motorL.PID_current_q.D = 0.0;
+  float curr_P = 1.0;
+  float curr_I = 0.03;
+  float curr_D = 0.001;
 
-  motorL.PID_current_d.P = 0.0;
-  motorL.PID_current_d.I = 0.0;
-  motorL.PID_current_d.D = 0.0;
+  // current q/d
+  motorL.PID_current_q.P = curr_P;
+  motorL.PID_current_q.I = curr_I;
+  motorL.PID_current_q.D = curr_D;
+
+  motorL.PID_current_d.P = curr_P;
+  motorL.PID_current_d.I = curr_I;
+  motorL.PID_current_d.D = curr_D;
 
   // velocity
   motorL.PID_velocity.P = vel_P;
@@ -72,13 +70,13 @@ void setupPID() {
   // motorL.P_angle.D = 0.0;
 
   // current q/d
-  motorR.PID_current_q.P = 0.0;
-  motorR.PID_current_q.I = 0.0;
-  motorR.PID_current_q.D = 0.0;
+  motorR.PID_current_q.P = curr_P;
+  motorR.PID_current_q.I = curr_I;
+  motorR.PID_current_q.D = curr_D;
 
-  motorR.PID_current_d.P = 0.0;
-  motorR.PID_current_d.I = 0.0;
-  motorR.PID_current_d.D = 0.0;
+  motorR.PID_current_d.P = curr_P;
+  motorR.PID_current_d.I = curr_I;
+  motorR.PID_current_d.D = curr_D;
 
   // velocity
   motorR.PID_velocity.P = vel_P;
@@ -164,7 +162,7 @@ bool MotorsInit()
   set_motors();
 
 #ifdef TRACE
-  Serial.println("OK: FOC initialized. Starting test sequence...");
+  Serial.println("OK: FOC initialized. Starting aligning sequence...");
 #endif // TRACE
 
   return true;
@@ -180,6 +178,17 @@ void set_motors()
   // convert setpoints to rad/s for FOC
   target_velocity_L = map(constrain(speedSetpointL, -100, 100), -100, 100, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
   target_velocity_R = map(constrain(speedSetpointR, -100, 100), -100, 100, -MAX_SPEED_RAD_S, MAX_SPEED_RAD_S);
+}
+
+void getFOCCurrents()
+{
+    // https://docs.simplefoc.com/inline_current_sense#standalone-current-sense
+    current_dc_L = current_senseL.getDCCurrent();
+    current_dc_R = current_senseR.getDCCurrent();
+    current_ph_L = current_senseL.getPhaseCurrents();
+    current_ph_R = current_senseR.getPhaseCurrents();
+    current_dq_L = current_senseL.getFOCCurrents(motorL.electrical_angle);
+    current_dq_R = current_senseR.getFOCCurrents(motorR.electrical_angle);
 }
 
 void motorLoop()

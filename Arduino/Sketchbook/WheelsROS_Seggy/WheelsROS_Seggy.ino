@@ -1,4 +1,4 @@
-//#define TRACE
+#define TRACE
 //#define HAS_ENCODERS
 //#define HAS_LEDS
 //#define USE_ARCADE_DRIVE
@@ -22,7 +22,9 @@
 // Note: using Arduino IDE 2.3.6 + Teensy plugins + Teensy 4.0 on Ubunti 24.04
 //
 
-#define MAX_SPEED_RAD_S 2.5
+#include <SimpleFOC.h>
+
+#define MAX_SPEED_RAD_S 3.5
 
 #define JOYSTICK_ACTIVATE_PIN 32
 #define JOYSTICK_PRESSED_PIN 33
@@ -32,7 +34,7 @@
 #define JOYSTICK_TRIM_X 12
 #define JOYSTICK_TRIM_Y -2
 
-#define DEADZONE_JS 0.0
+#define DEADZONE_JS 5.0
 
 const int batteryVoltageInPin = A10;  // Analog input pin that the battery 1/3 divider is attached to. 4.7K / 1.2K does the job for 15V max.
 
@@ -87,6 +89,15 @@ unsigned long AUTO_STOP_INTERVAL = 2000;
 
 long battery_voltage_mv = 0l;
 long battery_current_ma = 0l;
+
+// https://docs.simplefoc.com/inline_current_sense#standalone-current-sense
+PhaseCurrent_s current_ph_L;
+PhaseCurrent_s current_ph_R;
+DQCurrent_s current_dq_L;
+DQCurrent_s current_dq_R;
+
+float current_dc_L = 0.0;
+float current_dc_R = 0.0;
 
 // milliseconds from last events:
 unsigned long lastMotorCommandMs = 0;
@@ -216,6 +227,8 @@ void loop() //Main Loop
     battery_voltage_mv = battery_voltage_mv * 16204l / 1000l; // millivolts, returns "12000" for 12.0V
 
     digitalWrite(BUZZER_PIN, battery_voltage_mv < 10000l);
+
+    getFOCCurrents();
 
     /*
     //battery_current_ma = 529l + 51l;

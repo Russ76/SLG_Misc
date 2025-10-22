@@ -23,7 +23,7 @@ double joystickY()
 {
   double jy = constrain(map((double)analogRead(JOYSTICK_Y_PIN) + JOYSTICK_TRIM_Y, 0.0, 1024.0, -100.0, 100.0), -100.0, 100.0);
 
-  if (abs(jy) < DEADZONE_JS) // deadzone
+  if (abs(jy) < DEADZONE_JS) // deadzone, percent of max stick deflection
     jy = 0.0;
 
   return jy;
