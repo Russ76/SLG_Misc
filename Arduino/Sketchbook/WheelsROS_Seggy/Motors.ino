@@ -49,8 +49,8 @@ void setupPID() {
   // float vel_D = 0.004;
 
   float vel_P = 0.5;
-  float vel_I = 0.;
-  float vel_D = 0.0;
+  float vel_I = 0.02;
+  float vel_D = 0.004;
 
   // current q/d
   motorL.PID_current_q.P = 0.0;
