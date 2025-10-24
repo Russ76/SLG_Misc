@@ -27,12 +27,12 @@
 
 // BLDC motor & driver instance
 BLDCMotor motor = BLDCMotor(POLE_PAIRS);
-BLDCDriver3PWM driver = BLDCDriver3PWM(5, 6, 7, 8);    // Left wheel
+BLDCDriver3PWM driver = BLDCDriver3PWM(5, 6, 7, 8);  // Left wheel
 //BLDCDriver3PWM driver = BLDCDriver3PWM(9, 10, 11, 13); // Right wheel. 13 is also BUILTIN_LED
 
 // hall sensor instance
 //HallSensor sensor(HALL1, HALL2, HALL3, POLE_PAIRS);
-HallSensor sensor = HallSensor(2, 3, 4, POLE_PAIRS);    // Left wheel
+HallSensor sensor = HallSensor(2, 3, 4, POLE_PAIRS);  // Left wheel
 //HallSensor sensor = HallSensor(12, 14, 15, POLE_PAIRS); // Right wheel
 
 // MOT: Align sensor.
@@ -41,18 +41,81 @@ HallSensor sensor = HallSensor(2, 3, 4, POLE_PAIRS);    // Left wheel
 // MOT: Zero elec. angle: 5.24
 // MOT: No current sense.
 
+bool state_A = false;
+bool state_B = false;
+//bool state_C = false;
+bool prev_state_A = false;
+bool prev_state_B = false;
+
+volatile long long Ldistance = 0;
+
+/*
+My version of the ISR:
+void leftEncoder() {
+  state_A = digitalRead(sensor.pinA);
+  state_B = digitalRead(sensor.pinB);
+  //state_C = digitalRead(sensor.pinC);
+  if (state_A != prev_state_A || state_B != prev_state_B) {
+    // this is one tick - A or B changed. We have 60 ticks per rotation for miniPRO wheels (15 pole pairs)
+    bool dir = state_A && !prev_state_A && state_B
+           || !state_A && prev_state_A && !state_B
+           || !state_B && prev_state_B && state_A
+           || state_B && !prev_state_B && !state_A;
+
+  //Serial.println(dir);
+
+    if (dir) {
+      Ldistance--;
+    } else {
+      Ldistance++;  // wheel moves forward, positive increase
+    }
+    prev_state_A = state_A;
+    prev_state_B = state_B;
+  }
+}
+*/
+
+// ChatGPT 5 version of the ISR:
+// - Executes in constant time (no conditional branching),
+// - Is extremely fast (a single table lookup)
+void leftEncoder() {
+  uint8_t A = digitalRead(sensor.pinA);
+  uint8_t B = digitalRead(sensor.pinB);
+
+  uint8_t curr = (A << 1) | B;
+  uint8_t prev = (prev_state_A << 1) | prev_state_B;
+
+  // Lookup table for direction based on previous and current 2-bit states
+  static const int8_t dir_table[4][4] = {
+    { 0,  1, -1,  0},
+    {-1,  0,  0,  1},
+    { 1,  0,  0, -1},
+    { 0, -1,  1,  0}
+  };
+
+  int8_t dir = dir_table[prev][curr];
+  if (dir) Ldistance += dir;
+
+  prev_state_A = A;
+  prev_state_B = B;
+} 
+
 // Interrupt routine intialization
 // channel A and B callbacks
 void doA() {
   //Serial.println("doA");
+  //uint8_t hall_state = sensor.readHallState(); // bitmask 0-2 bits; not in this library version (2.3) yet
+  leftEncoder();
   sensor.handleA();
 }
 void doB() {
   //Serial.println("doB");
+  leftEncoder();
   sensor.handleB();
 }
 void doC() {
   //Serial.println("doC");
+  leftEncoder();
   sensor.handleC();
 }
 
@@ -77,7 +140,7 @@ void setup() {
   SimpleFOCDebug::enable(&Serial);
 
   // initialize HALL sensor hardware
-  sensor.init(); // void sub
+  sensor.init();  // void sub
 
   sensor.enableInterrupts(doA, doB, doC);
 
@@ -123,12 +186,12 @@ void setup() {
   // limit the voltage to be set to the motor. Start very low for high resistance motors.
   // current = voltage / resistance, so try to be well under 1Amp
   motor.voltage_limit = MOTOR_VOLTAGE_LIMIT;
-  motor.LPF_velocity = 0.2; // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
+  motor.LPF_velocity = 0.2;  // a low-pass filter to smooth out noisy velocity measurements, derived from position sensor.
   motor.PID_velocity.output_ramp = 300.0;
 
   // To skip alignment, supply known parameters:
-  motor.zero_electric_angle = 5.24; // rad
-  motor.sensor_direction = Direction::CCW; // CW or CCW
+  motor.zero_electric_angle = 5.24;         // rad
+  motor.sensor_direction = Direction::CCW;  // CW or CCW
 
   // comment out if not needed
   //motor.useMonitoring(Serial);
@@ -157,6 +220,29 @@ void setup() {
   init_ok = true;
 }
 
+long long LdistancePrev = 0;
+long long pLdistancePrev = 0;
+
+double speedMeasured_L = 0;
+
+long distL;
+
+void speed_calculate() {
+  distL = Ldistance - LdistancePrev;
+
+  // note: this is the place to scale -100..100% speed to 255 pwm:
+  speedMeasured_L = (double)distL;  //map(distL, -80, 80, -100, 100);
+
+  // we don't need to keep track of total distances per wheel, only increments - for speed loop.
+  // beware - if EncodersReset() is not called often enough, L/Rdistance will
+  // overflow at 32K and cause violent jerking of the wheels!
+  //EncodersReset();
+
+  LdistancePrev = Ldistance;
+}
+
+bool pprev_state_A = false;
+bool pprev_state_B = false;
 
 void loop() {
 
@@ -165,14 +251,38 @@ void loop() {
     return;
   }
 
+/*
+  if (state_A != pprev_state_A || state_B != pprev_state_B) {
+    Serial.print("AB: ");
+    Serial.print(state_A);
+    Serial.print("\t");
+    Serial.println(state_B);
+    pprev_state_A = state_A;
+    pprev_state_B = state_B;
+  }
+*/
+
+  if (Ldistance != pLdistancePrev) {
+    Serial.print("dist: ");
+    Serial.println(Ldistance);
+    pLdistancePrev = Ldistance;
+  }
+
   ulong now = millis();
-  if(now - last_print > 1000) {
+  if (now - last_print > 1000) {
     float angle = sensor.getAngle();
     float velocity = sensor.getVelocity();
     Serial.print("Ang: ");
     Serial.print(angle);
     Serial.print("  Vel: ");
     Serial.println(velocity);
+
+    speed_calculate();
+    Serial.print("Ldistance: ");
+    Serial.print(Ldistance);
+    Serial.print("\tMeasured speed %: ");
+    Serial.println(speedMeasured_L);
+
     last_print = now;
   }
 
@@ -186,7 +296,7 @@ void loop() {
   // velocity, position or voltage (defined in motor.controller)
   // this function can be run at much lower frequency than loopFOC() function
   // You can also use motor.move() and set the motor.target in the code
-  motor.move(target_velocity);
+  //motor.move(target_velocity);
 
   // function intended to be used with serial plotter to monitor motor variables
   // significantly slowing the execution down!!!!
