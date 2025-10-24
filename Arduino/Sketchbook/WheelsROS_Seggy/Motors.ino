@@ -4,11 +4,13 @@
 // Seggy ("Smart Table" robot is based on Segway Ninebot miniPRO
 //
 
+// Note: HallSensor's and POLE_PAIRS defined in Encoders.ino tab
+
 #define POWER_SUPPLY_VOLTAGE 12
 //#define DRIVER_VOLTAGE_LIMIT 6
 #define MOTOR_VOLTAGE_LIMIT 8
 #define MOTOR_VOLTAGE_ALIGN 2
-#define POLE_PAIRS 15
+//#define POLE_PAIRS 15
 
 const float current_limit = 3.0;  // A, conservative
 
@@ -27,8 +29,8 @@ BLDCDriver3PWM driverL = BLDCDriver3PWM(5, 6, 7, 8);    // Left wheel
 BLDCDriver3PWM driverR = BLDCDriver3PWM(9, 10, 11, 13); // Right wheel. 13 is also BUILTIN_LED
 
 //HallSensor sensor(HALL1, HALL2, HALL3, POLE_PAIRS);
-HallSensor sensorL = HallSensor(2, 3, 4, POLE_PAIRS);    // Left wheel
-HallSensor sensorR = HallSensor(12, 14, 15, POLE_PAIRS); // Right wheel
+//HallSensor sensorL = HallSensor(2, 3, 4, POLE_PAIRS);    // Left wheel
+//HallSensor sensorR = HallSensor(12, 14, 15, POLE_PAIRS); // Right wheel
 
 // Note: A2 (16) and A9 (23) are used by joystick, as are A32 (Active) and A33 (Pressed). A10 (24) used by battery monitor.
 
@@ -132,6 +134,8 @@ bool MotorsInit()
   motorR.linkSensor(&sensorR);
   sensorL.init();
   sensorR.init();
+
+  EncodersInit();    // Initialize the encoder's variables, enable interrupt handlers
 
   // limiting motor movements
   // Note: enables basic anti-windup mechanism if you limit the voltage or current.

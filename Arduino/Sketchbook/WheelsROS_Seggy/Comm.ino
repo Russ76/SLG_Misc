@@ -223,9 +223,7 @@ void runCommand() {
       respond();
       break;
     case RESET_ENCODERS:
-#ifdef HAS_ENCODERS
       EncodersReset();
-#endif // HAS_ENCODERS
       // do nothing
       respond_OK(cmd);
       break;
@@ -268,10 +266,6 @@ void runCommand() {
 
 /* Wrap the encoder reading function */
 long readEncoder(int i) {
-#ifdef HAS_ENCODERS
   if (i == LEFT) return Ldistance;
   else return Rdistance;
-#else
-  return 0L;
-#endif // HAS_ENCODERS
 }

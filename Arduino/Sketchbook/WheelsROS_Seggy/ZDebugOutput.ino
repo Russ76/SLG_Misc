@@ -60,10 +60,8 @@ void printAll()
   {
     lastPrintMillis = millis();
 
-#ifdef HAS_ENCODERS
     double Ldur = (double)Ldistance;
     double Rdur = (double)Rdistance;
-#endif // HAS_ENCODERS
 
     Serial.print("-------------------- ");
     Serial.print((loopCnt - lastLoopCnt) / (PRINT_INTERVAL_MS / 1000));
@@ -104,7 +102,6 @@ void printAll()
     Serial.print("\tRight: ");
     Serial.println(motorR.shaft_velocity);
 
-#ifdef HAS_ENCODERS
     Serial.print("Encoders:  Right Rdistance: ");
     Serial.print(Rdur);
     Serial.print("       Left Ldistance: ");
@@ -114,7 +111,6 @@ void printAll()
     Serial.print(speedMeasured_R);
     Serial.print("       Left: ");
     Serial.println(speedMeasured_L);
-#endif // HAS_ENCODERS
 
     Serial.print("Joystick:   active: ");
     Serial.print(isJoystickActive());

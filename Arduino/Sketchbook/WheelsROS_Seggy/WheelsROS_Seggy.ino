@@ -1,5 +1,4 @@
-//#define TRACE
-//#define HAS_ENCODERS
+#define TRACE
 //#define HAS_LEDS
 //#define USE_ARCADE_DRIVE
 
@@ -55,7 +54,6 @@ const int controlLoopFactor = 20; // factor of 20 make for 100 ms Control cycle
 
 //-------------------------------------- Variable definitions --------------------------------------------- //
 
-#ifdef HAS_ENCODERS
 // 64-bit integers to avoid overflow
 volatile long long Ldistance, Rdistance;   // encoders - distance traveled, in ticks
 long long LdistancePrev = 0;   // last encoders values - distance traveled, in ticks
@@ -66,7 +64,6 @@ double speedMeasured_L = 0;
 
 long distR; // ticks per 100ms cycle, as measured
 long distL;
-#endif // HAS_ENCODERS
 
 // desired speed can be set by joystick:
 // comes in the range -100...100 - it has a meaning of "percent of max speed":
@@ -126,10 +123,6 @@ void setup()
   // ======================== init motors and encoders: ===================================
 
   init_ok = MotorsInit();
-
-#ifdef HAS_ENCODERS
-  EncodersInit();    // Initialize the encoders - attach interrupts
-#endif // HAS_ENCODERS
 
   timer = micros();
   delay(20);
@@ -237,10 +230,8 @@ void loop() //Main Loop
     //battery_current_ma = (battery_current_ma - 51l); // direct A/D reading, after offset
     */
 
-#ifdef HAS_ENCODERS
     // calculate speed and distance:
     speed_calculate();
-#endif // HAS_ENCODERS
 
     set_motors(); // pass speedSetpointR/L to FOC
 

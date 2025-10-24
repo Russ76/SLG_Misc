@@ -1,50 +1,25 @@
-/*-------------Encoder---------------*/
+// Note: Seggy robot does not have encoders. Hall sensors are used instead.
 
-#ifdef HAS_ENCODERS
+#define POLE_PAIRS 15
 
-// Note: Seggy robot does not have encoders.
-
-// TODO: Using encoders on RPi Pico:
-// https://github.com/raspberrypi/pico-examples/blob/master/pio/quadrature_encoder/quadrature_encoder.c
-// https://forums.raspberrypi.com/viewtopic.php?t=340988
-// https://github.com/jamon/pi-pico-pio-quadrature-encoder/blob/main/README.md
-// https://www.upesy.com/blogs/tutorials/rotary-encoder-raspberry-pi-pico-with-arduino-code
-// https://core-electronics.com.au/guides/getting-started-with-rotary-encoders-examples-with-raspberry-pi-pico/
-
-// old code from Mega 2560 below for reference:
-
-// interrupts:
-// Most Arduino boards have two external interrupts: number 0 (on digital pin 2) and 1 (on digital pin 3)
-
-const int ENCODER_L_A = 3;    // side L (interrupt 1, Left encoder)
-const int ENCODER_L_B = 10;   // side L data
-
-const int ENCODER_R_A = 2;    // side R (interrupt 0, Right encoder)
-const int ENCODER_R_B = 8;    // side R data
-
-// we use Oak Grigsby Optical Encoders, type 96Q100-50-00355
+//HallSensor sensor(HALL1, HALL2, HALL3, POLE_PAIRS);
+HallSensor sensorL = HallSensor(2, 3, 4, POLE_PAIRS);     // Left wheel
+HallSensor sensorR = HallSensor(12, 14, 15, POLE_PAIRS);  // Right wheel
 
 // **************************
 //     Init the Encoders
 // **************************
-void EncodersInit()
-{
+void EncodersInit() {
   // Left encoder:
-  pinMode(ENCODER_L_A, INPUT_PULLUP);
-  pinMode(ENCODER_L_B, INPUT_PULLUP);
-
   // Right encoder:
-  pinMode(ENCODER_R_A, INPUT_PULLUP);
-  pinMode(ENCODER_R_B, INPUT_PULLUP);
+
+  sensorL.enableInterrupts(doA_L, doB_L, doC_L);
+  sensorR.enableInterrupts(doA_R, doB_R, doC_R);
 
   EncodersReset();
-
-  attachInterrupt(1, leftEncoder, CHANGE);   // int 1, pin D3  - left encoder interrupt
-  attachInterrupt(0, rightEncoder, CHANGE);  // int 0, pin D2  - right encoder interrupt
 }
 
-void EncodersReset()
-{
+void EncodersReset() {
   Ldistance = 0;
   Rdistance = 0;
   LdistancePrev = 0;
@@ -54,40 +29,88 @@ void EncodersReset()
 // ********************************************************
 // Read distance from the encoders
 //
-// one full wheel rotation on Plucky produces 2506 ticks
+// one full wheel rotation on Seggy produces 60 ticks
 // ********************************************************
-void leftEncoder()
-{
-  // we spend around 10us in the interrupt, at approx 1kHz frequency at pwm=80
 
-  //boolean vi = (PIND & _BV(PIND3)) == 0; // read pin D3 (PD3)   - works for UNO
+bool prev_state_A_L = false;
+bool prev_state_B_L = false;
 
-  boolean vi = digitalRead(ENCODER_L_A) == LOW;
-  boolean vd = digitalRead(ENCODER_L_B) == HIGH;
+bool prev_state_A_R = false;
+bool prev_state_B_R = false;
 
-  if (vi == vd)
-  {
-    Ldistance--;
-  } else {
-    Ldistance++;                // wheel moves forward, positive increase
-  }
+// Lookup table for direction based on previous and current 2-bit states
+static const int8_t dir_table[4][4] = {
+  { 0, 1, -1, 0 },
+  { -1, 0, 0, 1 },
+  { 1, 0, 0, -1 },
+  { 0, -1, 1, 0 }
+};
+
+// ChatGPT 5 version of the ISR:
+// - Executes in constant time (no conditional branching),
+// - Is extremely fast (a single table lookup)
+void leftEncoder() {
+  uint8_t A = digitalRead(sensorL.pinA);
+  uint8_t B = digitalRead(sensorL.pinB);
+
+  uint8_t curr = (A << 1) | B;
+  uint8_t prev = (prev_state_A_L << 1) | prev_state_B_L;
+
+  int8_t dir = dir_table[prev][curr];
+  if (dir) Ldistance -= dir; // reversed
+
+  prev_state_A_L = A;
+  prev_state_B_L = B;
 }
 
-void rightEncoder()
-{
-  // we spend around 10us in the interrupt, at approx 1kHz frequency at pwm=80
-
-  //boolean vi = (PIND & _BV(PIND2)) == 0; // read pin D2 (PD2)   - works for UNO
-
-  boolean vi = digitalRead(ENCODER_R_A) == LOW;
-  boolean vd = digitalRead(ENCODER_R_B) == HIGH;
-
-  if (vi == vd)
-  {
-    Rdistance--;
-  } else {
-    Rdistance++;                // wheel moves forward, positive increase
-  }
+// Interrupt routine intialization
+// channel A and B callbacks
+void doA_L() {
+  //Serial.println("doA");
+  //uint8_t hall_state = sensor.readHallState(); // bitmask 0-2 bits; not in this library version (2.3) yet
+  leftEncoder();
+  sensorL.handleA();
+}
+void doB_L() {
+  //Serial.println("doB");
+  leftEncoder();
+  sensorL.handleB();
+}
+void doC_L() {
+  //Serial.println("doC");
+  leftEncoder();
+  sensorL.handleC();
 }
 
-#endif // HAS_ENCODERS
+void rightEncoder() {
+  uint8_t A = digitalRead(sensorR.pinA);
+  uint8_t B = digitalRead(sensorR.pinB);
+
+  uint8_t curr = (A << 1) | B;
+  uint8_t prev = (prev_state_A_R << 1) | prev_state_B_R;
+
+  int8_t dir = dir_table[prev][curr];
+  if (dir) Rdistance += dir;
+
+  prev_state_A_R = A;
+  prev_state_B_R = B;
+}
+
+// Interrupt routine intialization
+// channel A and B callbacks
+void doA_R() {
+  //Serial.println("doA");
+  //uint8_t hall_state = sensor.readHallState(); // bitmask 0-2 bits; not in this library version (2.3) yet
+  rightEncoder();
+  sensorR.handleA();
+}
+void doB_R() {
+  //Serial.println("doB");
+  rightEncoder();
+  sensorR.handleB();
+}
+void doC_R() {
+  //Serial.println("doC");
+  rightEncoder();
+  sensorR.handleC();
+}
